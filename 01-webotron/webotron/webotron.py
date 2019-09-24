@@ -11,10 +11,11 @@ import boto3
 from botocore.exceptions import ClientError
 # import sys  # Required to read command, arguments and options, e.g.: webotron.py arg1 arg2 --arg3
 import click
+from bucket import BucketManager
 
 
 session = boto3.Session(profile_name='default')  # loads the default section of ~/.aws/config file
-s3 = session.resource('s3')
+bucket_manager = BucketManager(session)
 
 
 @click.group()  # You can retrieve more information by usint ' webotron.py --help'
@@ -26,7 +27,7 @@ def cli():
 @cli.command('list-buckets')  # decorator, wraps the function list_buckets() with cli group from click
 def list_buckets():
     """List all S3 buckets."""
-    for bucket in s3.buckets.all():
+    for bucket in bucket_manager.all_buckets():
         print(bucket)
 
 
@@ -34,7 +35,7 @@ def list_buckets():
 @click.argument('bucket')
 def list_bucket_objects(bucket):
     """List all objects in an S3 bucket."""
-    for obj in s3.Bucket(bucket).objects.all():
+    for obj in bucket_manager.all_objects(bucket):
         print(obj)
 
 
@@ -42,16 +43,8 @@ def list_bucket_objects(bucket):
 @click.argument('bucket')
 def setup_bucket(bucket):
     """Create and configure S3 bucket."""
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.create_bucket
-    s3_bucket = None
-    try:
-        s3_bucket = s3.create_bucket(Bucket=bucket,
-                                     CreateBucketConfiguration={'LocationConstraint': session.region_name})
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
-            s3_bucket = s3.Bucket(bucket)
-        else:
-            raise e
+    s3_bucket = bucket_manager.init_bucket(bucket)
+    bucket_policy = bucket_manager.set_policy(s3_bucket)
 
     policy = """
     {
