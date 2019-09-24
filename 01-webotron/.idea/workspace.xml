@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="57998356-e486-4894-bcd8-93445ae7e2f4" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../.README.md.swp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/webotron/webotron.py" beforeDir="false" afterPath="$PROJECT_DIR$/webotron/webotron.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -20,8 +18,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/webotron/webotron.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="304">
-              <caret line="60" column="5" selection-start-line="60" selection-start-column="5" selection-end-line="60" selection-end-column="5" />
+            <state relative-caret-position="79">
+              <caret line="76" column="5" selection-start-line="76" selection-start-column="5" selection-end-line="76" selection-end-column="5" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -144,12 +142,12 @@
       <option name="presentableId" value="Default" />
       <updated>1569238645321</updated>
       <workItem from="1569238648383" duration="7727000" />
-      <workItem from="1569322700564" duration="893000" />
+      <workItem from="1569322700564" duration="5726000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="8620000" />
+    <option name="totallyTimeSpent" value="13453000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="67" y="25" width="1853" height="1175" extended-state="6" />
@@ -184,8 +182,8 @@
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/webotron/webotron.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="304">
-          <caret line="60" column="5" selection-start-line="60" selection-start-column="5" selection-end-line="60" selection-end-column="5" />
+        <state relative-caret-position="79">
+          <caret line="76" column="5" selection-start-line="76" selection-start-column="5" selection-end-line="76" selection-end-column="5" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>

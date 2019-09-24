@@ -2,6 +2,8 @@ import boto3
 from botocore.exceptions import ClientError
 #import sys  # Required to read command, arguments and options, e.g.: webotron.py arg1 arg2 --arg3
 import click
+from pathlib import Path
+from mimetypes import guess_type
 
 
 session = boto3.Session(profile_name='default')  # loads the default section of ~/.aws/config file
@@ -70,7 +72,36 @@ def setup_bucket(bucket):
     return
 
 
+def upload_file(s3_bucket, path, key):
+    content_type = guess_type(key)[0] or 'text/plain'
+    #print(content_type)
+    s3_bucket.upload_file(
+        path,
+        key,
+        ExtraArgs={
+            'ContentType': content_type
+        }
+    )
 
+
+@cli.command('sync')
+@click.argument('pathname', type=click.Path(exists=True))
+@click.argument('bucket')
+def sync(pathname, bucket):
+    "Sync contents of PATHNAME to BUCKET"
+
+    s3_bucket = s3.Bucket(bucket)
+    root = Path(pathname).expanduser().resolve()  # Resolve to full pathname, convert ~/ to a full user path
+
+    def handle_directory(target):
+        for p in target.iterdir():
+            if p.is_dir():
+                handle_directory(p)
+            if p.is_file():
+                #print(f"Path: {p}\n Key: {p.relative_to(root)}")
+                upload_file(s3_bucket, str(p), str(p.relative_to(root)))
+
+    handle_directory(root)
 
 
 if __name__ == '__main__':
