@@ -11,14 +11,25 @@ from bucket import BucketManager
 # import sys  # Required to read command, arguments and options, e.g.: webotron.py arg1 arg2 --arg3
 
 
-session = boto3.Session(profile_name='default')  # loads the default section of ~/.aws/config file
-bucket_manager = BucketManager(session)
+session = None
+bucket_manager = None
 
 
 @click.group()  # You can retrieve more information by usint ' webotron.py --help'
-def cli():
+@click.option('--profile', default='default', help="Use a given AWS profile from ~/.aws/config.")
+def cli(profile):
     """Webotron deploys websites to AWS."""  # Docstring
-    pass
+
+    global session, bucket_manager  # reassign these values, so other functions can use them.
+    session_cfg = {}
+
+    if profile:
+        session_cfg['profile_name'] = profile
+    else:
+        session_cfg['profile_name'] = 'default'
+
+    session = boto3.Session(**session_cfg)  # loads the provided section of ~/.aws/config file
+    bucket_manager = BucketManager(session)
 
 
 @cli.command('list-buckets')  # decorator, wraps the function list_buckets() with cli group from click
