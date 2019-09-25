@@ -3,18 +3,29 @@
 
 
 from mimetypes import guess_type
+import boto3
 from botocore.exceptions import ClientError
 from pathlib import Path
+from hashlib import md5
+from functools import reduce
 import util  # Imports data and functions to convert AWS region to correct endpoint url.
 
 
 class BucketManager:
     """Manage an S3 Bucket."""
 
+    # AWS will split large files in chunks of 8388608 bytes, creating a different ETAG for each chunk.
+    # https://stackoverflow.com/questions/12186993/what-is-the-algorithm-to-compute-the-amazon-s3-etag-for-a-file-larger-than-5gb
+    CHUNK_SIZE = 8388608
+
+
     def __init__(self, session):
         """Create a BucketManager object."""
         self.session = session
         self.s3 = self.session.resource('s3')
+        self.transfer_config = boto3.s3.transfer.TransferConfig(multipart_chunksize=self.CHUNK_SIZE,
+                                                                multipart_threshold=self.CHUNK_SIZE)
+        self.manifest = {}
 
 
     def get_region_name(self, bucket):
@@ -55,7 +66,8 @@ class BucketManager:
             return s3_bucket
 
 
-    def set_policy(self, bucket):
+    @staticmethod  # Static method knows nothing about the class and just deals with the parameters.
+    def set_policy(bucket):
         """Set bucket policy to public readable."""
 
         policy = """
@@ -80,17 +92,32 @@ class BucketManager:
         pol.put(Policy=policy)  # Add the policy to the object
 
 
-    def configure_website(self, bucket):
+    @staticmethod
+    def configure_website(bucket):
         """Set default web pages."""
 
-        bucket.Website().put(WebsiteConfiguration = {'ErrorDocument': {'Key': 'error.html'},
+        bucket.Website().put(WebsiteConfiguration={'ErrorDocument': {'Key': 'error.html'},
                                                     'IndexDocument': {'Suffix': 'index.html'}})
 
-    @staticmethod
-    def upload_file(bucket, path, key):
+
+    def load_manifest(self, bucket):
+        """Load manifest for caching purposes."""
+        paginator = self.s3.meta.client.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=bucket.name):
+            for obj in page.get('Contents', []):
+                # print(obj)
+                self.manifest[obj['Key']] = obj['ETag']
+
+
+    def upload_file(self, bucket, path, key):
         """Upload path to S3 bucket at key."""
 
         content_type = guess_type(key)[0] or 'text/plain'
+
+        etag = self.gen_etag(path)
+        if self.manifest.get(key, '') == etag:
+            print(f"Skipping {key}, (etags match)")
+            return
 
         print('uploading ' + str(key))
 
@@ -99,15 +126,51 @@ class BucketManager:
             key,
             ExtraArgs={
                 'ContentType': content_type
-            }
+            },
+            Config=self.transfer_config
         )
+
+
+    @staticmethod
+    def hash_data(data):
+        """Generate md5 hash for data."""
+        hash = md5()
+        hash.update(data)
+
+        return hash
+
+
+    def gen_etag(self, path):
+        """Generate ETAG for file."""
+        hashes = []
+
+        with open(path, 'rb') as f:
+            while True:
+                data = f.read(self.CHUNK_SIZE)  # Only read parts of the file in the memory.
+
+                if not data:
+                    break
+
+                hashes.append(self.hash_data(data))
+
+        if not hashes:
+            return
+
+        elif len(hashes) == 1:
+            return f'"{hashes[0].hexdigest()}"'
+
+        else:
+            digests = (h.digest() for h in hashes)
+            chunk_hash = self.hash_data(reduce(lambda x, y: x + y, digests))  # AWS makes a hash of all the hashes combined
+            return f'"{chunk_hash.hexdigest()}-{len(hashes)}"'
 
 
     def sync(self, pathname, bucket_name):
         """Upload all contents in a directory to S3."""
 
         bucket = self.s3.Bucket(bucket_name)
-        root = Path(pathname).expanduser().resolve()  # Resolve to full pathname, convert ~/ to a full user path
+        self.load_manifest(bucket)
+        root = Path(pathname).expanduser().resolve()  # Resolve to full pathname, e.g. convert ~/ to a full user path
 
         def handle_directory(target):
             for p in target.iterdir():
