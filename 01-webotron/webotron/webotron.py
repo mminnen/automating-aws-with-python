@@ -8,11 +8,14 @@ Webotron: Deploy websites to AWS S3
 import boto3
 import click
 from bucket import BucketManager
+from domain import DomainManager
+import util
 # import sys  # Required to read command, arguments and options, e.g.: webotron.py arg1 arg2 --arg3
 
 
 session = None
 bucket_manager = None
+domain_manager = None
 
 
 @click.group()  # You can retrieve more information by usint ' webotron.py --help'
@@ -20,7 +23,7 @@ bucket_manager = None
 def cli(profile):
     """Webotron deploys websites to AWS."""  # Docstring
 
-    global session, bucket_manager  # reassign these values, so other functions can use them.
+    global session, bucket_manager, domain_manager  # reassign these values, so other functions can use them.
     session_cfg = {}
 
     if profile:
@@ -30,6 +33,7 @@ def cli(profile):
 
     session = boto3.Session(**session_cfg)  # loads the provided section of ~/.aws/config file
     bucket_manager = BucketManager(session)
+    domain_manager = DomainManager(session)
 
 
 @cli.command('list-buckets')  # decorator, wraps the function list_buckets() with cli group from click
@@ -66,6 +70,19 @@ def sync(pathname, bucket):
 
     bucket_manager.sync(pathname, bucket)
     print(bucket_manager.get_bucket_url(bucket_manager.s3.Bucket(bucket)))
+
+
+@cli.command('setup-domain')
+@click.argument('domain')
+def setup_domain(domain):
+    """Configure DOMAIN to point to BUCKET."""
+    bucket = bucket_manager.get_bucket(domain)
+    zone = domain_manager.find_hosted_zone(domain) or domain_manager.create_hosted_zone(domain)
+
+    # Get the region name of the bucket
+    endpoint = util.get_endpoint(bucket_manager.get_region_name(bucket))
+    a_record = domain_manager.create_s3_domain_record(zone, domain, endpoint)
+    print(f"Domain configure: http://{a_record}")
 
 
 if __name__ == '__main__':

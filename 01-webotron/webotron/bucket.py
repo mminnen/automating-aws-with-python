@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """Classes for S3 buckets."""
 
 
@@ -26,6 +27,11 @@ class BucketManager:
         self.transfer_config = boto3.s3.transfer.TransferConfig(multipart_chunksize=self.CHUNK_SIZE,
                                                                 multipart_threshold=self.CHUNK_SIZE)
         self.manifest = {}
+
+
+    def get_bucket(self, bucket_name):
+        """Get a bucket by name."""
+        return self.s3.Bucket(bucket_name)
 
 
     def get_region_name(self, bucket):
@@ -66,7 +72,7 @@ class BucketManager:
             return s3_bucket
 
 
-    @staticmethod  # Static method knows nothing about the class and just deals with the parameters.
+    @staticmethod
     def set_policy(bucket):
         """Set bucket policy to public readable."""
 
@@ -92,7 +98,7 @@ class BucketManager:
         pol.put(Policy=policy)  # Add the policy to the object
 
 
-    @staticmethod
+    @staticmethod  # Static method knows nothing about the class and just deals with the parameters.
     def configure_website(bucket):
         """Set default web pages."""
 
