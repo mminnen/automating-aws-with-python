@@ -9,7 +9,7 @@ from botocore.exceptions import ClientError
 from pathlib import Path
 from hashlib import md5
 from functools import reduce
-import util  # Imports data and functions to convert AWS region to correct endpoint url.
+from webotron import util  # Imports data and functions to convert AWS region to correct endpoint url.
 
 
 class BucketManager:
