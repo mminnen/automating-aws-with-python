@@ -9,6 +9,8 @@ import boto3
 import click
 from bucket import BucketManager
 from domain import DomainManager
+from certificate import CertificateManager
+from cdn import DistributionManager
 import util
 # import sys  # Required to read command, arguments and options, e.g.: webotron.py arg1 arg2 --arg3
 
@@ -16,6 +18,8 @@ import util
 session = None
 bucket_manager = None
 domain_manager = None
+cert_manager = None
+dist_manager = None
 
 
 @click.group()  # You can retrieve more information by usint ' webotron.py --help'
@@ -23,7 +27,8 @@ domain_manager = None
 def cli(profile):
     """Webotron deploys websites to AWS."""  # Docstring
 
-    global session, bucket_manager, domain_manager  # reassign these values, so other functions can use them.
+    # reassign these values, so other functions can use them.
+    global session, bucket_manager, domain_manager, cert_manager, dist_manager
     session_cfg = {}
 
     if profile:
@@ -34,6 +39,8 @@ def cli(profile):
     session = boto3.Session(**session_cfg)  # loads the provided section of ~/.aws/config file
     bucket_manager = BucketManager(session)
     domain_manager = DomainManager(session)
+    cert_manager = CertificateManager(session)
+    dist_manager = DistributionManager(session)
 
 
 @cli.command('list-buckets')  # decorator, wraps the function list_buckets() with cli group from click
@@ -82,7 +89,42 @@ def setup_domain(domain):
     # Get the region name of the bucket
     endpoint = util.get_endpoint(bucket_manager.get_region_name(bucket))
     a_record = domain_manager.create_s3_domain_record(zone, domain, endpoint)
-    print(f"Domain configure: http://{a_record}")
+    print(f"Domain configured: http://{a_record}")
+
+
+@cli.command('find-cert')
+@click.argument('domain')
+def find_cert(domain):
+    """Lookup cert for domain"""
+    print(cert_manager.find_matching_cert(domain))
+
+
+@cli.command('setup-cdn')
+@click.argument('domain')
+@click.argument('bucket')
+def setup_cdn(domain, bucket):
+    """Configure Cloudfront distribution for domain"""
+    dist = dist_manager.find_matching_dist(domain)
+    # Create a distribution if it does not exist
+    if not dist:
+        cert = cert_manager.find_matching_cert(domain)
+        if not cert:  # SSL is not optional at this time
+            print("Error: No matching cert found.")
+            return
+
+        # Create the distribution
+        dist = dist_manager.create_dist(domain, cert)
+        print("Waiting for distribution deployment...")
+        dist_manager.await_deploy(dist)
+
+    zone = domain_manager.find_hosted_zone(domain) \
+        or domain_manager.create_hosted_zone(domain)
+
+    # Create Cloudfromt domain record, instead of S3 domain record
+    domain_manager.create_cf_domain_record(zone, domain, dist['DomainName'])
+    print(f"Domain configured: https://{domain}")
+
+    return
 
 
 if __name__ == '__main__':
